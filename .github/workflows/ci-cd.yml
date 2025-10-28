@@ -13,10 +13,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
     - name: Set up Python
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: '3.9'
         
@@ -30,13 +30,13 @@ jobs:
         pytest --cov=./ --cov-report=xml --cov-report=html --junitxml=test-report.xml tests/
         
     - name: Upload coverage report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: coverage-report
         path: htmlcov/
         
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-results
         path: test-report.xml
@@ -48,12 +48,12 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
         
     - name: Set up Python
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: '3.9'
         
@@ -79,7 +79,7 @@ jobs:
         safety check --json --output safety-report.json || true
         
     - name: Upload analysis reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: static-analysis-reports
         path: |
@@ -96,12 +96,12 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
         
     - name: Set up Python
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: '3.9'
         
@@ -110,13 +110,13 @@ jobs:
         pip install -r requirements.txt
         
     - name: Download test coverage
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: coverage-report
         path: ./
         
     - name: Download analysis reports
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: static-analysis-reports
         path: ./
@@ -124,8 +124,8 @@ jobs:
     - name: SonarQube Scan
       uses: SonarSource/sonarqube-scan-action@master
       env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        SONAR_TOKEN: ${{ c062c6cc78064bea0ed877194c828ecd2abcd9ae}}
+        SONAR_HOST_URL: ${{ https://sonarcloud.io }}
       with:
         args: >
           -Dsonar.projectKey=static-analysis-demo
@@ -142,7 +142,7 @@ jobs:
     - name: SonarQube Quality Gate check
       uses: SonarSource/sonarqube-quality-gate-action@master
       env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_TOKEN: ${{ c062c6cc78064bea0ed877194c828ecd2abcd9ae}}
       with:
         timeout: 300
 
@@ -153,10 +153,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      uses: docker/setup-buildx-action@v4
       
     - name: Build Docker image
       run: |
@@ -168,14 +168,14 @@ jobs:
         
     - name: Test Docker container
       run: |
-        docker run -d -p 5000:5000 --name test-app static-analysis-demo:latest
+        docker run -d -p 5055:5000 --name test-app static-analysis-demo:latest
         sleep 10
-        curl -f http://localhost:5000/health || exit 1
+        curl -f http://localhost:5055/health || exit 1
         docker stop test-app
         docker rm test-app
         
     - name: Save Docker image
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: docker-image
         path: |
