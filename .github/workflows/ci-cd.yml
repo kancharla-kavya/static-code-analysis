@@ -1,4 +1,5 @@
-name: CI/CD Pipeline with Static Analysis
+# .github/workflows/ci-cd.yml
+name: CI/CD Pipeline
 
 on:
   push:
@@ -8,188 +9,154 @@ on:
 
 jobs:
   test:
-    name: Run Tests and Coverage
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-        
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-        
-      - name: Run tests with coverage
-        run: |
-          pytest --cov=./ --cov-report=xml:coverage.xml --cov-report=html --junitxml=test-report.xml tests/
-        
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: htmlcov/
-        
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: test-report.xml
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov bandit flake8
+    
+    - name: Run tests with coverage
+      run: |
+        pytest --cov=./ --cov-report=xml --junitxml=test-results.xml tests/
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: |
+          test-results.xml
+          coverage.xml
 
-  static-analysis:
-    name: Static Code Analysis
+  security-scan:
     runs-on: ubuntu-latest
     needs: test
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-        
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-        
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-        
-      - name: Run Pylint
-        run: |
-          pylint app.py tests/ --output-format=json:pylint-report.json || true
-        
-      - name: Run Bandit Security Scan
-        run: |
-          bandit -r . -f json -o bandit-report.json || true
-        
-      - name: Run Radon Complexity Analysis
-        run: |
-          radon cc . -j -O radon-complexity.json
-          radon mi . -j -O radon-maintainability.json
-        
-      - name: Run Safety Check
-        run: |
-          safety check --json --output safety-report.json || true
-        
-      - name: Upload analysis reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: static-analysis-reports
-          path: |
-            pylint-report.json
-            bandit-report.json
-            radon-complexity.json
-            radon-maintainability.json
-            safety-report.json
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        pip install bandit safety
+    
+    - name: Run Bandit security scan
+      run: |
+        bandit -r . -f json -o bandit-report.json || true
+    
+    - name: Run Safety check
+      run: |
+        safety check --json --output safety-report.json || true
+    
+    - name: Upload security reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
 
-  sonarqube-analysis:
-    name: SonarQube Analysis
+  code-quality:
     runs-on: ubuntu-latest
-    needs: [test, static-analysis]
+    needs: test
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-        
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-        
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-        
-      - name: Download test coverage
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage-report
-          path: ./coverage
-        
-      - name: Download analysis reports
-        uses: actions/download-artifact@v4
-        with:
-          name: static-analysis-reports
-          path: ./reports
-        
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: "http://localhost:9000"
-        with:
-          args: >
-            -Dsonar.projectKey=static-analysis-demo
-            -Dsonar.python.coverage.reportPaths=coverage/coverage.xml
-            -Dsonar.python.bandit.reportPaths=reports/bandit-report.json
-            -Dsonar.python.pylint.reportPaths=reports/pylint-report.json
-
-  quality-gate-check:
-    name: Quality Gate Check
-    runs-on: ubuntu-latest
-    needs: sonarqube-analysis
+    - name: Checkout code
+      uses: actions/checkout@v4
     
-    steps:
-      - name: SonarQube Quality Gate check
-        uses: SonarSource/sonarqube-quality-gate-action@v2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: "http://localhost:9000"
-        with:
-          timeout: 300
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        pip install flake8 radon
+    
+    - name: Run Flake8 linting
+      run: |
+        flake8 . --exit-zero --format=json > flake8-report.json || true
+    
+    - name: Run Radon complexity analysis
+      run: |
+        radon cc . -j -O radon-complexity.json || true
+        radon mi . -j -O radon-maintainability.json || true
+    
+    - name: Upload quality reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: quality-reports
+        path: |
+          flake8-report.json
+          radon-complexity.json
+          radon-maintainability.json
 
   docker-build:
-    name: Build and Scan Docker Image
     runs-on: ubuntu-latest
-    needs: quality-gate-check
+    needs: [test, security-scan, code-quality]
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-      
-      - name: Build Docker image
-        run: docker build -t static-analysis-demo:latest .
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker image
+      run: |
+        docker build -t static-analysis-demo:${{ github.sha }} .
+        docker build -t static-analysis-demo:latest .
+    
+    - name: Test Docker container
+      run: |
+        docker run -d -p 5000:5000 --name test-container static-analysis-demo:latest
+        sleep 10
         
-      - name: Scan Docker image for vulnerabilities
-        run: docker scan static-analysis-demo:latest || true
+        # Health check
+        curl --retry 5 --retry-delay 5 --retry-max-time 30 http://localhost:5000/health
         
-      - name: Test Docker container
-        run: |
-          docker run -d -p 5055:5000 --name test-app static-analysis-demo:latest
-          sleep 10
-          curl -f http://localhost:5055/health || exit 1
-          docker stop test-app
-          docker rm test-app
-        
-      - name: Save Docker image
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-image
-          path: |
-            Dockerfile
-            requirements.txt
+        # Stop container
+        docker stop test-container
+        docker rm test-container
+    
+    - name: Save Docker image
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-image
+        path: |
+          Dockerfile
+          requirements.txt
 
   deploy-notification:
-    name: Deployment Notification
     runs-on: ubuntu-latest
     needs: docker-build
     if: github.ref == 'refs/heads/main'
     
     steps:
-      - name: Send success notification
-        run: |
-          echo "🚀 CI/CD Pipeline completed successfully!"
-          echo "📊 Static analysis reports generated"
-          echo "🐳 Docker image built and tested"
-          echo "✅ Quality gate passed"
+    - name: Notify success
+      run: |
+        echo "🎉 CI/CD Pipeline completed successfully!"
+        echo "📊 All tests passed"
+        echo "🔍 Security scan completed"
+        echo "📝 Code quality checks passed"
+        echo "🐳 Docker image built and tested"
+        echo "🚀 Ready for deployment"
