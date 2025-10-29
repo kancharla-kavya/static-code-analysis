@@ -123,8 +123,8 @@ jobs:
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v2
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{sqp_4d2739276146ac2c3052e168c85e2c573e1163e0}}
+          SONAR_HOST_URL: ${{http://localhost:9000}}
         with:
           args: >
             -Dsonar.projectKey=static-analysis-demo
@@ -141,8 +141,8 @@ jobs:
       - name: SonarQube Quality Gate check
         uses: SonarSource/sonarqube-quality-gate-action@v2
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{sqp_4d2739276146ac2c3052e168c85e2c573e1163e0}}
+          SONAR_HOST_URL: ${{http://localhost:9000}}
         with:
           timeout: 300
 
